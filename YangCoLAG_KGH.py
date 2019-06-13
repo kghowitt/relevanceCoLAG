@@ -42,6 +42,7 @@ Gtarg = [0,0,0,1,0,0,1,1,0,0,0,1,1]
 GtargID = int("0001001100011",2)
 
 Ltarg = [] # list os sentences licensed by Gtarg
+SENTENCES = {}
 
 ##############
 # END Globals
@@ -74,13 +75,43 @@ def reward(s) :  # CHECK
           Wcurr[i] -= r*Wcurr[i];
         else:
           Wcurr[i] += r*(1.0-Wcurr[i]);
+          
+######################################################################
+## KATHERINE ADDED RELEVANCE STRING DICTIONARY TO CONTAIN RELEVANCE ##
+############## FOR PREPOSITION STRANDING ONLY 6-13-2019 ##############
+######################################################################
+          
+def setupRel():
+    sentence_file = "COLAG_2011_sents.txt" #reads in sentfile which contains [ID] [ILLOC] [SENT]
+    relFile = {} #empty dictionary to hold relevance string
+    File = open(sentence_file, "r")
+    for line in File:
+        line = line.rstrip()
+        # grab the ID's - all are int's so map works
+        [sentID, illoc, sent] = line.split("\t")
+        #add all sentID as key to dictionary, value is list of 1's (all parameters relevant)
+        relFile[sentID] = [1,1,1,1,1,1,1,1,1,1,1,1,1]
+        #if Preposition is not the sentence, the Prep parameter [7] is irrelevant -1
+        if "P" not in sent:
+            relFile[sentID][7]= -1
+    return(relFile) # returns Dictionary where {sentID:[list containing 1, except for PS (-1 or 1)]
+
+
+
+
 
 def relevant(s,n):
     #assumes SENTENCES is a global dictionary with key: sentID and value: list of -1(irr.) or 1(rel.)
-    if SENTENCES[s][n] = 1:
+    SENTENCES =setupRel() #dictionary with list of rel
+    if SENTENCES[s][n] == 1:
         return True
     else:
         return False
+
+
+##############################################################
+##### END KATHERINE CODE
+##############################################################
 
 def punish() : # CHECK
   global Wcurr, Gcurr
@@ -184,7 +215,7 @@ for runNum in range(trials):
       numSents = numSents + 1
      
       if canParse(s,LD[GcurrID]):
-          reward()
+          reward(s)
 
       #sentID 13 y/n for rel
       #for i in n:
