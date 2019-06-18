@@ -88,7 +88,8 @@ def setupRel():
     for line in File:
         line = line.rstrip()
         # grab the ID's - all are int's so map works
-        [sentID, illoc, sent] = line.split("\t")
+        [sentstrID, illoc, sent] = line.split("\t")
+        sentID = int(sentstrID)
         #add all sentID as key to dictionary, value is list of 1's (all parameters relevant)
         relFile[sentID] = [1,1,1,1,1,1,1,1,1,1,1,1,1]
         #if Preposition is not the sentence, the Prep parameter [7] is irrelevant -1
