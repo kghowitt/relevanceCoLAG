@@ -11,6 +11,7 @@
 
 from collections import defaultdict
 import random
+import time
 
 ##########
 # Globals - Note "grammars" and "sentences" are globally stored as integer "ids"
@@ -23,12 +24,16 @@ LD = defaultdict(set) # the Language Domain
 LD_File = "COLAG_2011_ids.txt"
 # The CoLAG Domain, 3 columns, Grammar ID, Sent ID and Structure ID
 
-Out_Data_File = "OUTDATA.csv"
+RELFLAG = "Y"
+
+#Out_Data_File = "OUTDATA.csv"
+current_time = time.strftime("%m.%d.%y_%H:%M", time.localtime())
+Out_Data_File = RELFLAG+'OUTDATARel%s.csv' % current_time
 
 
 n = 13 # number of parameters
 r = .0005  # learning rate
-trials = 10  # number of simulated learning trials to run
+trials = 50  # number of simulated learning trials to run
 max_sents =  500000 # max number of sents before ending a trial
 threshold = .02 # when all weights are within a threshold, stop
 Wcurr = [] # current weights
@@ -42,7 +47,7 @@ Gtarg = [0,0,0,1,0,0,1,1,0,0,0,1,1]
 GtargID = int("0001001100011",2)
 
 Ltarg = [] # list os sentences licensed by Gtarg
-SENTENCES = {}
+SENTENCES = {} #key is sentID and value is list of relevance
 
 ##############
 # END Globals
@@ -67,15 +72,23 @@ def setupLtarg() :
   Ltarg = list(LD[GtargID]) # use Python set to remove duplicates
                                  #  due to within language ambiguity
 
-def reward(s) :  # CHECK
+def rewardrel(s,relflag) :  # CHECK
   global Wcurr, Gcurr
-  for i in range(n):
-    if relevant(s,n): #needs to be defined
+  if relflag == "Y":
+    for i in range(n):
+      if relevant(s,i): #if that sentence is relevant for that parameter KGH
+          if Gcurr[i]==0:
+            Wcurr[i] -= r*Wcurr[i]
+          else:
+            Wcurr[i] += r*(1.0-Wcurr[i])
+  elif relflag == "N":
+    for i in range(n):
         if Gcurr[i]==0:
-          Wcurr[i] -= r*Wcurr[i];
+          Wcurr[i] -= r*Wcurr[i]
         else:
-          Wcurr[i] += r*(1.0-Wcurr[i]);
-          
+          Wcurr[i] += r*(1.0-Wcurr[i])
+  else:
+    print("RelFlag Error")
 ######################################################################
 ## KATHERINE ADDED RELEVANCE STRING DICTIONARY TO CONTAIN RELEVANCE ##
 ############## FOR PREPOSITION STRANDING ONLY 6-13-2019 ##############
@@ -95,16 +108,14 @@ def setupRel():
         #if Preposition is not the sentence, the Prep parameter [7] is irrelevant -1
         if "P" not in sent:
             relFile[sentID][7]= -1
+        if "WH" not in sent:
+            relFile[sentID][6]= -1
     return(relFile) # returns Dictionary where {sentID:[list containing 1, except for PS (-1 or 1)]
 
 
-
-
-
-def relevant(s,n):
+def relevant(s,i):
     #assumes SENTENCES is a global dictionary with key: sentID and value: list of -1(irr.) or 1(rel.)
-    SENTENCES =setupRel() #dictionary with list of rel
-    if SENTENCES[s][n] == 1:
+    if SENTENCES[s][i] == 1:
         return True
     else:
         return False
@@ -122,15 +133,21 @@ def punish() : # CHECK
     else:
       Wcurr[i] -= r*Wcurr[i];
 
-def converged():
-  #if GcurrID in {611, 99, 547, 227, 867, 35, 163, 803, 99}: #superset and equivalent languages
-  #    return True 
-      
-  for i in range(n):
-    if i not in [3,6]: #considered convergence when all parameters except OPT(3) and WHM(6) converge becayse they never reach threshold
-        if not (1-Wcurr[i] <  threshold  or Wcurr[i] < threshold): 
-          return False
+def convergedPS():
+  i = 6
+  if not (1-Wcurr[i] <  threshold  or Wcurr[i] < threshold): 
+    return False
   return True
+
+##def converged():
+##  #if GcurrID in {611, 99, 547, 227, 867, 35, 163, 803, 99}: #superset and equivalent languages
+##  #    return True 
+##      
+##  for i in range(n):
+##    if i not in [3,6]: #considered convergence when all parameters except OPT(3) and WHM(6) converge becayse they never reach threshold
+##        if not (1-Wcurr[i] <  threshold  or Wcurr[i] < threshold): 
+##          return False
+##  return True
 
 def canParse(s,l): # is sentence s in language l
   if s in l:  # l is set, so membership is more efficient than list
@@ -183,6 +200,8 @@ print("Setting up ...")
 setupLD()
 setupLtarg()
 
+SENTENCES =setupRel() #dictionary with list of relevance strings KGH ADDED
+
 OUTDATA = open(Out_Data_File,"w")
 
 Gs = LD.keys() # a list of all valid CoLAG grammar IDs
@@ -203,7 +222,7 @@ for runNum in range(trials):
   numSents = 0
   b = 0
 
-  while not converged() and numSents < max_sents:
+  while not convergedPS() and numSents < max_sents:
 
       Gcurr = chooseGrammarBasedOn(Wcurr)
       GcurrID = bin2Dec(Gcurr)
@@ -216,14 +235,7 @@ for runNum in range(trials):
       numSents = numSents + 1
      
       if canParse(s,LD[GcurrID]):
-          reward(s)
-
-      #sentID 13 y/n for rel
-      #for i in n:
-      #    if sentID[i] == y:
-      #      reward Wcurr[i]
-      #
-      #ah
+          rewardrel(s, RELFLAG) #relevance check added to reward function KGH
           
       #if numSents > (max_sents - 10):
       #    csvOutput(OUTDATA, runNum, numSents, Gcurr , Wcurr)      
